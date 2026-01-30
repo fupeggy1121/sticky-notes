@@ -343,6 +343,66 @@
     .task-actions .edit-btn:hover { background: #eef4ff; }
     .task-actions .del-btn:hover  { background: #fdecea; }
 
+    /* Task note display */
+    .task-note {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: #888;
+      background: #f0f0f0;
+      padding: 2px 8px;
+      border-radius: 4px;
+      word-break: break-word;
+    }
+
+    /* Note input area */
+    .note-input {
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: inherit;
+      border: 2px solid #4f8cff;
+      border-radius: 6px;
+      outline: none;
+      resize: none;
+      background: #fff;
+    }
+
+    .note-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .note-actions button {
+      padding: 3px 10px;
+      font-size: 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background .2s;
+    }
+
+    .note-actions .note-confirm {
+      background: #4f8cff;
+      color: #fff;
+    }
+
+    .note-actions .note-confirm:hover {
+      background: #3a6fd8;
+    }
+
+    .note-actions .note-skip {
+      background: #e0e0e0;
+      color: #666;
+    }
+
+    .note-actions .note-skip:hover {
+      background: #ccc;
+    }
+
     /* Empty state */
     .empty {
       text-align: center;
@@ -428,6 +488,7 @@
             <div class="task-content">
               <div class="task-text">${escapeHtml(t.text)}</div>
               ${t.deadline ? renderDeadline(t) : ''}
+              ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
             </div>
             <div class="task-actions">
               <button class="edit-btn" title="编辑">&#9998;</button>
@@ -488,7 +549,7 @@
       const text = input.value.trim();
       if (!text) return;
       const deadline = deadlineInput.value || null;
-      tasks.unshift({ id: Date.now(), text, done: false, deadline });
+      tasks.unshift({ id: Date.now(), text, done: false, deadline, note: null });
       input.value = '';
       deadlineInput.value = '';
       save();
@@ -497,9 +558,86 @@
 
     function toggleTask(id) {
       const task = tasks.find(t => t.id === id);
-      if (task) task.done = !task.done;
-      save();
-      render();
+      if (!task) return;
+
+      if (task.done) {
+        // Uncheck: revert to active, clear note
+        task.done = false;
+        task.note = null;
+        save();
+        render();
+        return;
+      }
+
+      // Check: show inline note input before marking done
+      const li = listEl.querySelector(`[data-id="${id}"]`);
+      if (!li) return;
+
+      // Prevent duplicate note input
+      if (li.querySelector('.note-input')) return;
+
+      // Keep checkbox visually checked while entering note
+      const cb = li.querySelector('input[type="checkbox"]');
+      cb.checked = true;
+
+      const content = li.querySelector('.task-content');
+
+      const textarea = document.createElement('textarea');
+      textarea.className = 'note-input';
+      textarea.placeholder = '添加备注（可选）...';
+      textarea.rows = 2;
+
+      const actions = document.createElement('div');
+      actions.className = 'note-actions';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'note-confirm';
+      confirmBtn.textContent = '完成';
+
+      const skipBtn = document.createElement('button');
+      skipBtn.className = 'note-skip';
+      skipBtn.textContent = '跳过';
+
+      actions.appendChild(confirmBtn);
+      actions.appendChild(skipBtn);
+      content.appendChild(textarea);
+      content.appendChild(actions);
+      textarea.focus();
+
+      let finished = false;
+      function complete(withNote) {
+        if (finished) return;
+        finished = true;
+        if (withNote) {
+          const text = textarea.value.trim();
+          task.note = text || null;
+        } else {
+          task.note = null;
+        }
+        task.done = true;
+        save();
+        render();
+      }
+
+      confirmBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        complete(true);
+      });
+
+      skipBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        complete(false);
+      });
+
+      textarea.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          complete(true);
+        }
+        if (e.key === 'Escape') {
+          complete(false);
+        }
+      });
     }
 
     function deleteTask(id) {
