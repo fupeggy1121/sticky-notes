@@ -1,0 +1,12 @@
+{
+  "name": "my-to",
+  "version": "1.0.0",
+  "description": "桌面悬浮待办小部件",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
